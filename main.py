@@ -3,6 +3,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys
 import time
 import getpass
 import configparser
@@ -95,8 +96,10 @@ def consultar_pedido_pelo_numero(navegador, wait, numero_pedido):
 # 2. CONFIGURAÇÃO E LOGIN
 # =================================================================
 
-url_login = ["GERAL"]["url_login"]
-url_portal = ["GERAL"]["url_portal"]
+config = configparser.ConfigParser()
+config.read("config.ini", encoding="utf-8")
+url_login = config["GERAL"]["url_login"]
+url_portal = config["GERAL"]["url_portal"]
 usuario = input(str("Digite o nome do Usuário:"))
 senha = getpass.getpass("Digite sua senha (Sua senha não vai aparecer):")
 
@@ -116,8 +119,6 @@ wait.until(EC.url_changes(navegador.current_url))
 
 janela_principal = navegador.current_window_handle
 
-config = configparser.ConfigParser()
-config.read("config.ini", encoding="utf-8")
 
 nome_cliente = config["GERAL"]["nome_cliente"]
 
@@ -239,7 +240,7 @@ for nome_aba, dados_do_pedido in planilha_completa.items():
 print(f"\n🏁 Processo Concluído!")
 
 # --- FINALIZAÇÃO E GERAÇÃO DE LOG ---
-nome_arquivo_log = f"log_vendas_{time.strftime('%Y%m%d_%H%M%S')}.txt"
+nome_arquivo_log = f"log_pedidos_{time.strftime('%Y%m%d_%H%M%S')}.txt"
 
 with open(nome_arquivo_log, "w", encoding="utf-8") as f:
     f.write("=== RELATÓRIO DE LANÇAMENTO AUTOMÁTICO ===\n")
