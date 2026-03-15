@@ -60,35 +60,33 @@ def limpar_itens_pedido(navegador, wait):
 
 def consultar_pedido_pelo_numero(navegador, wait, numero_pedido):
     """Limpa os campos usando o botão nativo e consulta o novo ID."""
-    print(f"🔍 Consultando pedido: {numero_pedido} para atualizar interface...")
+    print(f"🔍 Consultando pedido: {numero_pedido}")
     navegador.switch_to.default_content()
     wait.until(EC.frame_to_be_available_and_switch_to_it("cadastro"))
 
-    # 1. Clica no botão "Limpar" para resetar o estado do formulário
-    # Localizado conforme seu print
     try:
         xpath_limpar = "//a[contains(@onclick, 'limparCampos()')]"
         btn_limpar = wait.until(EC.element_to_be_clickable((By.XPATH, xpath_limpar)))
         navegador.execute_script("arguments[0].click();", btn_limpar)
-        print("   Botão limpar acionado.")
-        time.sleep(2)  # Pequena pausa para o sistema limpar os campos
+        print("Botão limpar clickado.")
+        time.sleep(2)  # pausa para o sistema limpar os campos
     except:
-        print("   Aviso: Não foi possível clicar no botão limpar, tentando seguir...")
+        print("Não foi possível clicar no botão limpar, tentando seguir...")
 
-    # 2. Localiza o campo de número e digita
+    # localiza o campo de número e digita
     campo_num = wait.until(EC.element_to_be_clickable((By.ID, 'iNumeroPedido')))
 
-    # Se o .clear() continuar dando erro, usamos um "truque" de backspace:
+    # caso o .clear() der erro:
     from selenium.webdriver.common.keys import Keys
     campo_num.send_keys(Keys.CONTROL + "a")
     campo_num.send_keys(Keys.BACKSPACE)
 
     campo_num.send_keys(numero_pedido)
 
-    # 3. Clica no botão de consulta
+    # clica no botão consultar
     wait.until(EC.element_to_be_clickable((By.ID, 'consultaPedido'))).click()
 
-    # 4. Validação final
+    # valida se a quantidade itens está zerada
     print("   Aguardando confirmação de itens zerados...")
     wait.until(EC.text_to_be_present_in_element((By.ID, 'qtdePedido'), "0"))
     print(f"✅ Pedido {numero_pedido} está vazio, iniciando lançamento de itens ...")
@@ -154,7 +152,7 @@ for nome_aba, dados_do_pedido in planilha_completa.items():
             num_pedido_atual = navegador.find_element(By.ID, "iNumeroPedido").get_attribute("value")
             consultar_pedido_pelo_numero(navegador, wait, num_pedido_atual)
         else:
-            print("✅ Sheet1 iniciada com pedido limpo.")
+            print(f"✅ {nome_aba} iniciada com pedido limpo.")
 
 
 
