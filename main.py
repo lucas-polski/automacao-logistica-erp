@@ -109,7 +109,7 @@ pedidos_gerados = []
 
 navegador = webdriver.Chrome()
 navegador.maximize_window()
-wait = WebDriverWait(navegador, 10)
+wait = WebDriverWait(navegador, 20)
 
 navegador.get(url_login)
 navegador.find_element(By.ID, "login").send_keys(usuario)
