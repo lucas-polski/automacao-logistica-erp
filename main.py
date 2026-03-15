@@ -271,6 +271,6 @@ with open(nome_arquivo_log, "w", encoding="utf-8") as f:
         f.write("- Nenhum item em outro estoque.\n")
 
 print(f"📄 Relatório completo gerado: {nome_arquivo_log}")
-
+input("\nProcesso finalizado. Pressione Enter para fechar...")
 
 navegador.quit()
