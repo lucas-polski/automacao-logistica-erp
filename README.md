@@ -1,4 +1,4 @@
-# Automação de Lançamento de Pedidos - Selenium & Python
+# Automação de Lançamento de Pedidos com Python
 
 Este projeto automatiza o lançamento de pedidos em sistemas ERP, acessando remotamente planilhas do Google Planilhas e extraindo dados para execução.
 
