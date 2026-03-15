@@ -15,5 +15,5 @@ Este projeto automatiza o faturamento e lançamento de pedidos em sistemas ERP, 
 
 ## 📦 Como Executar
 1. Clone o repositório.
-2. Renomeie o `config.ini.example` para `config.ini` e preencha com seus dados.
+2. Renomeie o `config.example` para `config.ini` e preencha com seus dados.
 3. Execute o script principal ou o executável gerado.
