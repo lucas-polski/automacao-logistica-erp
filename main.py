@@ -18,7 +18,7 @@ import configparser
 
 def selecionar_cliente(navegador, wait, nome_cliente, janela_principal):
     """Realiza a busca e confirmação do cliente no portal."""
-    print(f"🔄 Selecionando cliente: {nome_cliente}")
+    print(f"  Selecionando cliente: {nome_cliente}")
     navegador.get(url_portal)
 
     wait.until(EC.frame_to_be_available_and_switch_to_it("cadastro"))
@@ -39,7 +39,7 @@ def selecionar_cliente(navegador, wait, nome_cliente, janela_principal):
     wait.until(EC.frame_to_be_available_and_switch_to_it("cadastro"))
     wait.until(EC.frame_to_be_available_and_switch_to_it("frameConfirmacaoDadosCliente"))
     wait.until(EC.element_to_be_clickable((By.ID, 'botaoConfirmarCliente'))).click()
-    print("✅ Cliente vinculado.")
+    print("  Cliente vinculado.")
 
 
 def limpar_itens_pedido(navegador, wait):
@@ -56,12 +56,12 @@ def limpar_itens_pedido(navegador, wait):
     xpath_remover = "//a[contains(@onclick, 'removeItemSelecionado()')]"
     wait.until(EC.element_to_be_clickable((By.XPATH, xpath_remover))).click()
     time.sleep(5)
-    print("✨ Comando de remoção enviado.")
+    print("Comando de remoção enviado.")
 
 
 def consultar_pedido_pelo_numero(navegador, wait, numero_pedido):
     """Limpa os campos usando o botão nativo e consulta o novo ID."""
-    print(f"🔍 Consultando pedido: {numero_pedido}")
+    print(f"  Consultando pedido: {numero_pedido}")
     navegador.switch_to.default_content()
     wait.until(EC.frame_to_be_available_and_switch_to_it("cadastro"))
 
@@ -69,10 +69,10 @@ def consultar_pedido_pelo_numero(navegador, wait, numero_pedido):
         xpath_limpar = "//a[contains(@onclick, 'limparCampos()')]"
         btn_limpar = wait.until(EC.element_to_be_clickable((By.XPATH, xpath_limpar)))
         navegador.execute_script("arguments[0].click();", btn_limpar)
-        print("Botão limpar clickado.")
+        print("  Botão limpar clickado.")
         time.sleep(2)  # pausa para o sistema limpar os campos
     except:
-        print("Não foi possível clicar no botão limpar, tentando seguir...")
+        print("  Não foi possível clicar no botão limpar, tentando seguir...")
 
     # localiza o campo de número e digita
     campo_num = wait.until(EC.element_to_be_clickable((By.ID, 'iNumeroPedido')))
@@ -90,7 +90,7 @@ def consultar_pedido_pelo_numero(navegador, wait, numero_pedido):
     # valida se a quantidade itens está zerada
     print("   Aguardando confirmação de itens zerados...")
     wait.until(EC.text_to_be_present_in_element((By.ID, 'qtdePedido'), "0"))
-    print(f"✅ Pedido {numero_pedido} está vazio, iniciando lançamento de itens ...")
+    print(f"  Pedido {numero_pedido} está vazio, iniciando lançamento de itens ...")
 
 # =================================================================
 # 2. CONFIGURAÇÃO E LOGIN
@@ -100,8 +100,8 @@ config = configparser.ConfigParser()
 config.read("config.ini", encoding="utf-8")
 url_login = config["GERAL"]["url_login"]
 url_portal = config["GERAL"]["url_portal"]
-usuario = input(str("Digite o nome do Usuário:"))
-senha = getpass.getpass("Digite sua senha (Sua senha não vai aparecer):")
+usuario = input(str("  Digite o nome do Usuário:"))
+senha = getpass.getpass("  Digite sua senha (Sua senha não vai aparecer):")
 
 itens_em_falta = []
 itens_em_outro_estoque = []
@@ -119,7 +119,6 @@ wait.until(EC.url_changes(navegador.current_url))
 
 janela_principal = navegador.current_window_handle
 
-
 nome_cliente = config["GERAL"]["nome_cliente"]
 
 # Planilha
@@ -135,7 +134,7 @@ primeira_aba = True
 
 for nome_aba, dados_do_pedido in planilha_completa.items():
     if dados_do_pedido.empty: continue
-    print(f"\n🚀 --- INICIANDO ABA: {nome_aba} ---")
+    print(f"\n   --- INICIANDO ABA: {nome_aba} ---")
 
     if primeira_aba:
         selecionar_cliente(navegador, wait, nome_cliente, janela_principal)
@@ -147,13 +146,13 @@ for nome_aba, dados_do_pedido in planilha_completa.items():
         quantidade_inicial = int(quantidade_texto)
 
         if quantidade_inicial > 0:
-            print(f"⚠️ Sheet1 detectou {quantidade_inicial} itens residuais. Limpando...")
+            print(f"  Sheet1 detectou {quantidade_inicial} itens residuais. Limpando...")
             limpar_itens_pedido(navegador, wait)
             # Re-seleciona ou consulta para garantir o refresh da tela, como você descobriu!
             num_pedido_atual = navegador.find_element(By.ID, "iNumeroPedido").get_attribute("value")
             consultar_pedido_pelo_numero(navegador, wait, num_pedido_atual)
         else:
-            print(f"✅ {nome_aba} iniciada com pedido limpo.")
+            print(f"  {nome_aba} iniciada com pedido limpo.")
 
 
 
@@ -169,7 +168,7 @@ for nome_aba, dados_do_pedido in planilha_completa.items():
         id_antigo = navegador.find_element(By.ID, "iNumeroPedido").get_attribute("value")
 
         # Duplica
-        print(f"🔄 Duplicando pedido {id_antigo}...")
+        print(f"  Duplicando pedido {id_antigo}...")
         xpath_dup = "//a[contains(@onclick, 'duplicarPedido()')]"
         btn_dup = wait.until(EC.element_to_be_clickable((By.XPATH, xpath_dup)))
         navegador.execute_script("arguments[0].click();", btn_dup)
@@ -211,11 +210,11 @@ for nome_aba, dados_do_pedido in planilha_completa.items():
             tem_info = len(navegador.find_elements(By.XPATH, "//img[contains(@src, 'information.png')]"))
 
             if val_estq <= 0:
-                print(f"⚠️ {info_completa}: Sem estoque.")
+                print(f"  {info_completa}: Sem estoque.")
                 itens_em_falta.append(info_completa) # Salva o nome junto
                 navegador.close()
             elif val_estq > 0 and tem_info > 1:
-                print(f"ℹ️ {info_completa}: Outro estoque.")
+                print(f"ℹ  {info_completa}: Outro estoque.")
                 itens_em_outro_estoque.append(info_completa) # Salva o nome junto
                 navegador.close()
             else:
@@ -226,18 +225,18 @@ for nome_aba, dados_do_pedido in planilha_completa.items():
 
                 btn_ok = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@value='OK']")))
                 navegador.execute_script("arguments[0].click();", btn_ok)
-                print(f"✅ {info_completa}: Lançado {quantidade}")
+                print(f"{info_completa}: Lançado {quantidade}")
 
             navegador.switch_to.window(janela_principal)
             time.sleep(5)
 
         except Exception as e:
-            print(f"❌ Erro no item {codigo}: {e}")
+            print(f"  Erro no item {codigo}: {e}")
             if len(navegador.window_handles) > 1: navegador.close()
             navegador.switch_to.window(janela_principal)
 
 # Fim
-print(f"\n🏁 Processo Concluído!")
+print(f"\n  Processo Concluído!")
 
 # --- FINALIZAÇÃO E GERAÇÃO DE LOG ---
 nome_arquivo_log = f"log_pedidos_{time.strftime('%Y%m%d_%H%M%S')}.txt"
@@ -247,7 +246,7 @@ with open(nome_arquivo_log, "w", encoding="utf-8") as f:
     f.write(f"Data/Hora: {time.ctime()}\n\n")
 
     # NOVA SEÇÃO: Pedidos gerados
-    f.write("📋 PEDIDOS GERADOS NESTA SESSÃO:\n")
+    f.write("  PEDIDOS GERADOS NESTA SESSÃO:\n")
     if pedidos_gerados:
         for p in pedidos_gerados:
             f.write(f"{p}\n")
