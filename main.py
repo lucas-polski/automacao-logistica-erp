@@ -134,6 +134,10 @@ primeira_aba = True
 
 for nome_aba, dados_do_pedido in planilha_completa.items():
     if dados_do_pedido.empty: continue
+    soma_qtd = pd.to_numeric(dados_do_pedido['QTD'], errors='coerce').sum()
+    if soma_qtd <= 0:
+        print(f"PULANDO ABA: {nome_aba} (Nenhuma quantidade lançada)")
+        continue # Pula para a próxima aba sem abrir o navegador/duplicar
     print(f"\n   --- INICIANDO ABA: {nome_aba} ---")
 
     if primeira_aba:
@@ -262,14 +266,14 @@ with open(nome_arquivo_log, "w", encoding="utf-8") as f:
     else:
         f.write("- Nenhum item em falta.\n")
 
-    f.write("\nℹ️ ITENS EM OUTRO ESTOQUE (NÃO LANÇADOS):\n")
+    f.write("\nITENS EM OUTRO ESTOQUE (NÃO LANÇADOS):\n")
     if itens_em_outro_estoque:
         for info in itens_em_outro_estoque:
             f.write(f"- {info}\n")
     else:
         f.write("- Nenhum item em outro estoque.\n")
 
-print(f"📄 Relatório completo gerado: {nome_arquivo_log}")
+print(f" Relatório completo gerado: {nome_arquivo_log}")
 input("\nProcesso finalizado. Pressione Enter para fechar...")
 
 navegador.quit()
