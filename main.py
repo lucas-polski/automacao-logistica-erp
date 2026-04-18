@@ -156,17 +156,20 @@ def verificar_e_excluir_itens_outro_estoque(navegador, wait):
         except Exception as e:
             print(f"    Falha ao clicar em Excluir: {e}")
 
+        # Após a exclusão, o sistema auto-preenche o campo iProduto com o código
+        # do item que acabou de ser excluído. Limpamos aqui para que o próximo
+        # lançamento não herde esse código residual.
+        try:
+            campo_cod = wait.until(EC.element_to_be_clickable((By.ID, "iProduto")))
+            campo_cod.click()
+            campo_cod.send_keys(Keys.CONTROL + "a")
+            campo_cod.send_keys(Keys.BACKSPACE)
+            print("    Campo de código limpo após exclusão.")
+        except Exception as e:
+            print(f"    Não foi possível limpar o campo iProduto após exclusão: {e}")
+
     navegador.switch_to.default_content()
     wait.until(EC.frame_to_be_available_and_switch_to_it("cadastro"))
-
-    """"
-
-    Adicionar Clear() após realizar a exclusão 
-    #####################
-    #####################
-    #####################
-
-    """
 
     return produtos_excluidos
 
@@ -198,7 +201,11 @@ def lancar_item(navegador, wait, janela_principal, codigo, nome_produto, quantid
         wait.until(EC.frame_to_be_available_and_switch_to_it("cadastro"))
 
         campo_cod = wait.until(EC.element_to_be_clickable((By.ID, "iProduto")))
-        campo_cod.clear()
+        # Limpeza robusta: .clear() às vezes não limpa quando o sistema
+        # auto-preenche o campo (ex.: após exclusão de linha).
+        campo_cod.click()
+        campo_cod.send_keys(Keys.CONTROL + "a")
+        campo_cod.send_keys(Keys.BACKSPACE)
         campo_cod.send_keys(codigo)
         navegador.find_element(By.ID, "botaoProcuraProduto").click()
 
