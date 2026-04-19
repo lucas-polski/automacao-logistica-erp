@@ -147,26 +147,99 @@ def verificar_e_excluir_itens_outro_estoque(navegador, wait):
     navegador.switch_to.parent_frame()
 
     if produtos_excluidos:
+        # Antes de clicar em Excluir, conta quantas linhas de produto existem na grade.
+        # Vamos esperar ATIVAMENTE até o backend efetivamente remover as linhas,
+        # em vez de um time.sleep fixo que pode ser curto demais.
+        try:
+            iframe_itens_pre = wait.until(EC.presence_of_element_located((By.ID, "frameItemPedido")))
+            navegador.switch_to.frame(iframe_itens_pre)
+            xpath_todas_linhas = "//table[@id='produtosInterna']//tr[@onclick and contains(@onclick, 'retornaAtualizacao')]"
+            linhas_antes = len(navegador.find_elements(By.XPATH, xpath_todas_linhas))
+            navegador.switch_to.parent_frame()
+            print(f"    Linhas na grade antes da exclusão: {linhas_antes}")
+        except Exception as e:
+            print(f"    Não foi possível contar linhas antes da exclusão: {e}")
+            linhas_antes = None
+
         try:
             xpath_remover = "//a[contains(@onclick, 'removeItemSelecionado()')]"
             btn_excluir = wait.until(EC.element_to_be_clickable((By.XPATH, xpath_remover)))
             navegador.execute_script("arguments[0].click();", btn_excluir)
-            time.sleep(3)
-            print(f"    {len(produtos_excluidos)} item(ns) excluído(s) com sucesso.")
+            print(f"    Clique em Excluir enviado. Aguardando backend remover linha(s)...")
         except Exception as e:
             print(f"    Falha ao clicar em Excluir: {e}")
+            linhas_antes = None  # evita espera inútil abaixo
 
-        # Após a exclusão, o sistema auto-preenche o campo iProduto com o código
-        # do item que acabou de ser excluído. Limpamos aqui para que o próximo
-        # lançamento não herde esse código residual.
+        # Espera ATIVA: aguarda até que a contagem de linhas diminua
+        # na quantidade esperada (ou timeout).
+        if linhas_antes is not None:
+            quantidade_esperada = linhas_antes - len(produtos_excluidos)
+            try:
+                def linhas_reduziram(driver):
+                    try:
+                        driver.switch_to.default_content()
+                        driver.switch_to.frame("cadastro")
+                        driver.switch_to.frame("frameItemPedido")
+                        atuais = len(driver.find_elements(By.XPATH, xpath_todas_linhas))
+                        driver.switch_to.default_content()
+                        driver.switch_to.frame("cadastro")
+                        return atuais <= quantidade_esperada
+                    except Exception:
+                        # Se o frame estiver em transição, tenta de novo no próximo poll
+                        try:
+                            driver.switch_to.default_content()
+                            driver.switch_to.frame("cadastro")
+                        except Exception:
+                            pass
+                        return False
+
+                WebDriverWait(navegador, 15).until(linhas_reduziram)
+                print(f"    Backend confirmou remoção. Grade atualizada.")
+            except Exception as e:
+                print(f"    Timeout aguardando remoção da linha (fallback para sleep). Detalhe: {e}")
+                time.sleep(3)
+
+        # Pausa adicional pequena para o iProduto estabilizar
+        # (o sistema pode re-popular o campo logo após a exclusão)
+        time.sleep(1)
+        print(f"    {len(produtos_excluidos)} item(ns) excluído(s) com sucesso.")
+
+        # A limpeza manual de campos (via .value = '') não é suficiente porque o
+        # sistema mantém o estado do item selecionado em variáveis JavaScript
+        # INTERNAS (não nos inputs). A única forma confiável de resetar o estado
+        # é usar o botão nativo "Limpar campos" (limparCampos()), que foi feito
+        # justamente para isso. Porém ele também limpa o número do pedido, então
+        # precisamos salvar e restaurar via consultaPedido.
         try:
-            campo_cod = wait.until(EC.element_to_be_clickable((By.ID, "iProduto")))
-            campo_cod.click()
-            campo_cod.send_keys(Keys.CONTROL + "a")
-            campo_cod.send_keys(Keys.BACKSPACE)
-            print("    Campo de código limpo após exclusão.")
+            # Salva o número do pedido atual ANTES de limpar
+            num_pedido_atual = navegador.find_element(By.ID, "iNumeroPedido").get_attribute("value")
+            print(f"    Salvando número do pedido atual: {num_pedido_atual}")
+
+            # Chama o limparCampos() nativo do sistema
+            xpath_limpar = "//a[contains(@onclick, 'limparCampos()')]"
+            btn_limpar = wait.until(EC.element_to_be_clickable((By.XPATH, xpath_limpar)))
+            navegador.execute_script("arguments[0].click();", btn_limpar)
+            print(f"    Botão limparCampos() nativo acionado.")
+            time.sleep(2)
+
+            # Recarrega o pedido para voltar ao contexto correto (com os itens que já foram lançados)
+            campo_num = wait.until(EC.element_to_be_clickable((By.ID, 'iNumeroPedido')))
+            campo_num.click()
+            campo_num.send_keys(Keys.CONTROL + "a")
+            campo_num.send_keys(Keys.BACKSPACE)
+            campo_num.send_keys(num_pedido_atual)
+            wait.until(EC.element_to_be_clickable((By.ID, 'consultaPedido'))).click()
+            time.sleep(3)  # aguarda o pedido carregar novamente
+
+            # Valida que voltamos ao pedido certo
+            num_pedido_confirmado = navegador.find_element(By.ID, "iNumeroPedido").get_attribute("value")
+            if num_pedido_confirmado != num_pedido_atual:
+                print(f"    ⚠ ATENÇÃO: pedido mudou! esperado {num_pedido_atual}, atual {num_pedido_confirmado}")
+            else:
+                print(f"    ✓ Pedido {num_pedido_atual} recarregado com sucesso.")
+
         except Exception as e:
-            print(f"    Não foi possível limpar o campo iProduto após exclusão: {e}")
+            print(f"    Falha no limparCampos+reconsulta: {e}")
 
     navegador.switch_to.default_content()
     wait.until(EC.frame_to_be_available_and_switch_to_it("cadastro"))
@@ -197,16 +270,94 @@ def lancar_item(navegador, wait, janela_principal, codigo, nome_produto, quantid
     info_completa = f"{codigo} - {nome_produto}"
 
     try:
+        # SEGURANÇA: fecha qualquer janela órfã que tenha sobrado de interações
+        # anteriores (ex.: popup de pesquisa que não fechou após uma exclusão).
+        # Se houver mais de uma janela aberta, fechamos todas as secundárias
+        # e voltamos para a janela principal antes de começar.
+        try:
+            if len(navegador.window_handles) > 1:
+                janelas_orfas = [h for h in navegador.window_handles if h != janela_principal]
+                print(f"   ⚠ Detectada(s) {len(janelas_orfas)} janela(s) órfã(s). Fechando antes de continuar...")
+                for handle in janelas_orfas:
+                    try:
+                        navegador.switch_to.window(handle)
+                        navegador.close()
+                    except Exception as e_close:
+                        print(f"      Erro ao fechar janela {handle}: {e_close}")
+                navegador.switch_to.window(janela_principal)
+                time.sleep(1)
+                print(f"   ✓ Janelas órfãs fechadas. Prosseguindo com lançamento de {codigo}.")
+        except Exception as e_orfa:
+            print(f"   Falha no fechamento preventivo de janelas órfãs: {e_orfa}")
+
         navegador.switch_to.default_content()
         wait.until(EC.frame_to_be_available_and_switch_to_it("cadastro"))
 
+        # Limpeza preventiva: zera TODOS os campos (visíveis e hidden) que
+        # podem estar residuais de uma exclusão ou seleção anterior. Isso evita
+        # que o sistema use um iIdProduto antigo na hora de botaoProcuraProduto.
+        campos_a_limpar_pre = [
+            "iProduto", "iIdProduto", "iIdCor", "iIdTamanho", "iNumeroLote",
+            "iSequencialItem", "iNaoContabiliza", "iIdUnidadeMedida",
+            "iIdItemPedidoVenda", "iListaItemPedidoVenda",
+            "iQuantidadeConvertida", "iQuantidade", "iDescricaoUnidadeMedida",
+        ]
+
+        # DIAGNÓSTICO: lê estado dos campos ANTES de limpar
+        script_inspecao = """
+            var ids = arguments[0];
+            var estado = {};
+            for (var i = 0; i < ids.length; i++) {
+                var el = document.getElementById(ids[i]);
+                if (el) estado[ids[i]] = el.value || '';
+            }
+            return estado;
+        """
+        estado_antes_lancar = navegador.execute_script(script_inspecao, campos_a_limpar_pre)
+        preenchidos_antes_lancar = {k: v for k, v in estado_antes_lancar.items() if v}
+        if preenchidos_antes_lancar:
+            print(f"   [DIAG início lancar_item {codigo}] campos com valor residual: {preenchidos_antes_lancar}")
+
+        navegador.execute_script("""
+            var ids = arguments[0];
+            for (var i = 0; i < ids.length; i++) {
+                var el = document.getElementById(ids[i]);
+                if (el) el.value = '';
+            }
+        """, campos_a_limpar_pre)
+
         campo_cod = wait.until(EC.element_to_be_clickable((By.ID, "iProduto")))
-        # Limpeza robusta: .clear() às vezes não limpa quando o sistema
-        # auto-preenche o campo (ex.: após exclusão de linha).
+        # Limpeza robusta do campo visível: .clear() às vezes não limpa quando
+        # o sistema auto-preenche o campo (ex.: após exclusão de linha).
         campo_cod.click()
         campo_cod.send_keys(Keys.CONTROL + "a")
         campo_cod.send_keys(Keys.BACKSPACE)
+
+        # Validação defensiva: garante que o campo ficou vazio antes de digitar o próximo código.
+        try:
+            WebDriverWait(navegador, 3).until(
+                lambda d: (d.find_element(By.ID, "iProduto").get_attribute("value") or "").strip() == ""
+            )
+        except Exception:
+            valor_residual = (campo_cod.get_attribute("value") or "").strip()
+            print(f"   Campo iProduto ainda tinha '{valor_residual}'. Forçando limpeza via JS.")
+            navegador.execute_script("arguments[0].value = '';", campo_cod)
+            time.sleep(0.5)
+
         campo_cod.send_keys(codigo)
+
+        # Confirma que o código digitado foi EXATAMENTE o que queríamos
+        valor_digitado = (campo_cod.get_attribute("value") or "").strip()
+        if valor_digitado != str(codigo).strip():
+            print(f"   ATENÇÃO: campo iProduto ficou com '{valor_digitado}' mas esperávamos '{codigo}'. Corrigindo...")
+            navegador.execute_script("arguments[0].value = '';", campo_cod)
+            campo_cod.send_keys(codigo)
+
+        # DIAGNÓSTICO: lê estado completo DEPOIS de digitar e ANTES do clique em buscar
+        estado_antes_clique = navegador.execute_script(script_inspecao, campos_a_limpar_pre)
+        preenchidos_antes_clique = {k: v for k, v in estado_antes_clique.items() if v}
+        print(f"   [DIAG antes de clicar buscar {codigo}] campos preenchidos: {preenchidos_antes_clique}")
+
         navegador.find_element(By.ID, "botaoProcuraProduto").click()
 
         wait.until(EC.number_of_windows_to_be(2))
@@ -215,6 +366,41 @@ def lancar_item(navegador, wait, janela_principal, codigo, nome_produto, quantid
         elemento_estq = wait.until(
             EC.visibility_of_element_located((By.XPATH, "//td[contains(@class, 'estoqueProduto')]"))
         )
+
+        # DIAGNÓSTICO: tenta capturar o nome/descrição do produto que apareceu no popup.
+        # Se houver divergência com o nome esperado, avisa ALTO.
+        try:
+            # Tentativas comuns de onde o nome do produto pode aparecer no popup
+            nome_popup = ""
+            for xpath_tent in [
+                "//input[@id='iDescricao']",
+                "//input[@name='iDescricao']",
+                "//input[@id='nomeProduto']",
+                "//td[contains(@class,'nomeProduto')]",
+                "//td[contains(@class,'descricaoProduto')]",
+            ]:
+                elems = navegador.find_elements(By.XPATH, xpath_tent)
+                if elems:
+                    val = elems[0].get_attribute("value") or elems[0].text or ""
+                    if val.strip():
+                        nome_popup = val.strip()
+                        break
+            if nome_popup:
+                nome_esperado = str(nome_produto).strip().upper()
+                nome_popup_up = nome_popup.upper()
+                # Compara pegando as 3 primeiras palavras
+                palavras_esp = [p for p in nome_esperado.split() if len(p) >= 3][:3]
+                if palavras_esp and not any(p in nome_popup_up for p in palavras_esp):
+                    print(f"   🚨 DIVERGÊNCIA NO POPUP: esperado '{nome_produto}' mas popup mostra '{nome_popup}'. ABORTANDO LANÇAMENTO!")
+                    navegador.close()
+                    navegador.switch_to.window(janela_principal)
+                    time.sleep(2)
+                    return ("erro", f"{info_completa} :: popup abriu com produto errado: {nome_popup}")
+                else:
+                    print(f"   [DIAG popup {codigo}] produto no popup: '{nome_popup}'")
+        except Exception as e_diag:
+            print(f"   [DIAG popup] não consegui inspecionar nome do produto: {e_diag}")
+
         val_estq = float(elemento_estq.text.split('\n')[0].strip().replace(',', '.'))
         tem_info = len(navegador.find_elements(By.XPATH, "//img[contains(@src, 'information.png')]"))
 
@@ -245,6 +431,23 @@ def lancar_item(navegador, wait, janela_principal, codigo, nome_produto, quantid
         btn_ok = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@value='OK']")))
         navegador.execute_script("arguments[0].click();", btn_ok)
         print(f"{info_completa}: Lançado {quantidade}")
+
+        # Aguarda o popup fechar sozinho (o sistema normalmente faz window.close()
+        # após confirmar o lançamento). Se não fechar em 3s, fechamos manualmente
+        # para evitar que janelas órfãs interfiram no próximo lançamento.
+        try:
+            WebDriverWait(navegador, 3).until(EC.number_of_windows_to_be(1))
+        except Exception:
+            print(f"   ⚠ Popup não fechou sozinho após OK. Fechando manualmente...")
+            # Fecha todas as janelas que não forem a principal
+            for handle in list(navegador.window_handles):
+                if handle != janela_principal:
+                    try:
+                        navegador.switch_to.window(handle)
+                        navegador.close()
+                    except Exception as e_close_popup:
+                        print(f"      Erro ao fechar popup {handle}: {e_close_popup}")
+            print(f"   ✓ Popup(s) fechado(s) manualmente.")
 
         navegador.switch_to.window(janela_principal)
         time.sleep(3)
