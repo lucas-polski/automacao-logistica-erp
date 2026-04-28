@@ -200,20 +200,36 @@ def verificar_e_excluir_outro_estoque(navegador, wait) -> list:
 # LANÇAMENTO DE UM ITEM
 # ============================================================
 
+def _normalizar_codigo_para_busca(codigo: str) -> str:
+    """
+    Garante que o código tem o prefixo '*' exigido pelo portal.
+    Se já tiver, devolve como está; se não tiver, adiciona.
+
+    Isso permite que a planilha tenha os códigos "limpos" (ex.: 20561)
+    e o ajuste de formato fique aqui, junto da lógica do portal.
+    """
+    codigo_str = str(codigo).strip()
+    if not codigo_str.startswith("*"):
+        codigo_str = "*" + codigo_str
+    return codigo_str
+
+
 def _digitar_codigo_produto(navegador, wait, codigo: str):
     """Digita o código do produto no campo iProduto."""
+    codigo_busca = _normalizar_codigo_para_busca(codigo)  # 🆕
+
     campo_cod = wait.until(EC.element_to_be_clickable((By.ID, "iProduto")))
     campo_cod.click()
     campo_cod.send_keys(Keys.CONTROL + "a")
     campo_cod.send_keys(Keys.BACKSPACE)
-    campo_cod.send_keys(codigo)
+    campo_cod.send_keys(codigo_busca)  # 🆕
 
     # Valida que o campo ficou com exatamente o código que queríamos
     valor_digitado = (campo_cod.get_attribute("value") or "").strip()
-    if valor_digitado != str(codigo).strip():
-        print(f"   ATENÇÃO: campo iProduto ficou com '{valor_digitado}' mas esperávamos '{codigo}'. Corrigindo...")
+    if valor_digitado != codigo_busca:  # 🆕
+        print(f"   ATENÇÃO: campo iProduto ficou com '{valor_digitado}' mas esperávamos '{codigo_busca}'. Corrigindo...")
         navegador.execute_script("arguments[0].value = '';", campo_cod)
-        campo_cod.send_keys(codigo)
+        campo_cod.send_keys(codigo_busca)  # 🆕
 
 
 def _ler_dados_do_popup(navegador, wait) -> tuple:
