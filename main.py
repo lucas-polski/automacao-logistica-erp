@@ -183,12 +183,10 @@ def main():
     cfg = carregar_config()
     usuario, senha = coletar_credenciais()
 
-    # 2. Abre navegador e faz login
     navegador, wait = abrir_navegador()
     fazer_login(navegador, wait, cfg.url_login, usuario, senha)
     janela_principal = navegador.current_window_handle
 
-    # 3. Lê os pedidos da planilha
     pedidos = _escolher_fonte_e_carregar_pedidos(cfg)
 
     # 4. Processa cada pedido
