@@ -16,7 +16,11 @@ import time
 
 from automacao.config import carregar_config
 from automacao.login import coletar_credenciais, abrir_navegador, fazer_login
-from automacao.planilha import ler_pedidos, Pedido
+from automacao.planilha import (
+    ler_pedidos_do_google_sheets,
+    ler_pedidos_do_arquivo,
+    Pedido,
+)
 from automacao.relatorio import DadosRelatorio, gerar_relatorio
 from automacao.portal import cliente, pedido as pedido_mod, item, janela
 
@@ -138,6 +142,36 @@ def _executar_relancamento(navegador, wait, janela_principal, dados: DadosRelato
     except Exception as e:
         print(f"   Falha ao iniciar pedido de relançamento: {e}")
 
+def _escolher_fonte_e_carregar_pedidos(cfg) -> list:
+    """
+    Pergunta ao usuário se quer ler do Google Sheets ou de um arquivo local,
+    e retorna a lista de pedidos da fonte escolhida.
+    """
+    print("\n   --- ESCOLHA A FONTE DOS PEDIDOS ---")
+    print("   1. Google Sheets (planilha online configurada no config.ini)")
+    print("   2. Arquivo .xlsx local")
+
+    escolha = input("   Digite 1 ou 2: ").strip()
+
+    if escolha == "1":
+        print(f"   Lendo do Google Sheets...")
+        return ler_pedidos_do_google_sheets(cfg.planilha_id)
+
+    if escolha == "2":
+        caminho_padrao = "pedidos.xlsx"
+        caminho = input(
+            f"   Caminho do arquivo (Enter para usar '{caminho_padrao}'): "
+        ).strip()
+        if not caminho:
+            caminho = caminho_padrao
+
+        print(f"   Lendo arquivo: {caminho}")
+        return ler_pedidos_do_arquivo(caminho)
+
+    # Opção inválida — pergunta de novo (recursão simples)
+    print("   ⚠ Opção inválida. Tente novamente.")
+    return _escolher_fonte_e_carregar_pedidos(cfg)
+
 
 # ============================================================
 # MAIN
@@ -155,7 +189,7 @@ def main():
     janela_principal = navegador.current_window_handle
 
     # 3. Lê os pedidos da planilha
-    pedidos = ler_pedidos(cfg.planilha_id)
+    pedidos = _escolher_fonte_e_carregar_pedidos(cfg)
 
     # 4. Processa cada pedido
     dados = DadosRelatorio()

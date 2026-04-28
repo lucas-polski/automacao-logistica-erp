@@ -1,13 +1,19 @@
 """
-Módulo responsável por ler a planilha do Google Sheets e transformá-la
-em estruturas de dados que o resto do projeto consome.
+Módulo responsável por ler pedidos de uma planilha (Google Sheets ou
+arquivo local .xlsx) e transformá-los em estruturas de dados que o
+resto do projeto consome.
 
-Esse módulo é o único lugar que sabe sobre pandas e sobre o formato
-específico das abas da planilha. Se amanhã os dados vierem de uma API,
-apenas esse módulo precisa mudar.
+Suporta duas fontes:
+- Google Sheets (via ID público da planilha)
+- Arquivo local .xlsx
+
+Em ambos os casos, o formato esperado é o mesmo: cada aba é um pedido,
+com colunas CODIGO, PRODUTO e QTD.
 """
 
 from dataclasses import dataclass
+from pathlib import Path
+
 import pandas as pd
 
 
@@ -26,16 +32,21 @@ class Pedido:
     itens: list[Item]
 
 
-def _baixar_planilha(sheet_id: str) -> dict[str, pd.DataFrame]:
-    """
-    Baixa a planilha do Google Sheets como Excel e retorna um dicionário
-    {nome_aba: DataFrame}.
+# ============================================================
+# FUNÇÕES INTERNAS DE PROCESSAMENTO
+# ============================================================
 
-    Prefixo _ indica que é uma função interna do módulo, não deve ser
-    usada diretamente por fora.
-    """
+def _baixar_do_google_sheets(sheet_id: str) -> dict[str, pd.DataFrame]:
+    """Baixa a planilha do Google Sheets como Excel."""
     url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
     return pd.read_excel(url, sheet_name=None)
+
+
+def _ler_arquivo_local(caminho: str) -> dict[str, pd.DataFrame]:
+    """Lê uma planilha local .xlsx."""
+    if not Path(caminho).exists():
+        raise FileNotFoundError(f"Arquivo '{caminho}' não encontrado.")
+    return pd.read_excel(caminho, sheet_name=None)
 
 
 def _extrair_itens_validos(df: pd.DataFrame) -> list[Item]:
@@ -56,7 +67,6 @@ def _extrair_itens_validos(df: pd.DataFrame) -> list[Item]:
             )
             itens.append(item)
         except (ValueError, KeyError) as e:
-            # Ignora linhas com dados inválidos (ex.: quantidade não numérica)
             print(f"  Linha inválida ignorada: {e}")
             continue
 
@@ -71,19 +81,11 @@ def _aba_tem_quantidade(df: pd.DataFrame) -> bool:
     return soma > 0
 
 
-def ler_pedidos(sheet_id: str) -> list[Pedido]:
+def _processar_planilha(planilha: dict[str, pd.DataFrame]) -> list[Pedido]:
     """
-    Lê a planilha do Google Sheets e retorna uma lista de Pedido,
-    pulando abas vazias ou sem quantidade lançada.
-
-    Args:
-        sheet_id: ID da planilha do Google Sheets (obtido do config).
-
-    Returns:
-        list[Pedido]: lista ordenada de pedidos prontos para serem processados.
+    Lógica comum a Google Sheets e arquivo local: filtra abas vazias,
+    extrai itens válidos e monta a lista de Pedidos.
     """
-    planilha = _baixar_planilha(sheet_id)
-
     pedidos = []
     for nome_aba, df in planilha.items():
         if not _aba_tem_quantidade(df):
@@ -98,3 +100,25 @@ def ler_pedidos(sheet_id: str) -> list[Pedido]:
         pedidos.append(Pedido(nome_aba=nome_aba, itens=itens))
 
     return pedidos
+
+
+# ============================================================
+# FUNÇÕES PÚBLICAS
+# ============================================================
+
+def ler_pedidos_do_google_sheets(sheet_id: str) -> list[Pedido]:
+    """
+    Lê a planilha do Google Sheets e retorna uma lista de Pedido,
+    pulando abas vazias ou sem quantidade lançada.
+    """
+    planilha = _baixar_do_google_sheets(sheet_id)
+    return _processar_planilha(planilha)
+
+
+def ler_pedidos_do_arquivo(caminho: str) -> list[Pedido]:
+    """
+    Lê um arquivo .xlsx local e retorna uma lista de Pedido,
+    pulando abas vazias ou sem quantidade lançada.
+    """
+    planilha = _ler_arquivo_local(caminho)
+    return _processar_planilha(planilha)
