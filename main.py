@@ -40,7 +40,7 @@ def _preparar_primeira_aba(navegador, wait, cfg, janela_principal, dados: DadosR
     janela.entrar_frame_cadastro(navegador, wait)
 
     # Verifica se o pedido inicial veio com itens residuais
-    quantidade_inicial = pedido_mod.contar_itens_no_pedido(navegador)
+    quantidade_inicial = pedido_mod.contar_itens_no_pedido(navegador, wait)
     if quantidade_inicial > 0:
         print(f"  {nome_aba} detectou {quantidade_inicial} itens residuais. Limpando...")
         pedido_mod.limpar_itens(navegador, wait)

@@ -21,10 +21,16 @@ def obter_numero_atual(navegador) -> str:
     return navegador.find_element(By.ID, "iNumeroPedido").get_attribute("value")
 
 
-def contar_itens_no_pedido(navegador) -> int:
+def contar_itens_no_pedido(navegador, wait) -> int:
     """Retorna a quantidade de itens que o pedido atual tem na grade."""
-    quantidade_texto = navegador.find_element(By.ID, "qtdePedido").text
-    return int(quantidade_texto)
+    elemento = wait.until(EC.presence_of_element_located((By.ID, "qtdePedido")))
+    texto = elemento.text.strip()
+
+    if not texto:
+        wait.until(lambda d: d.find_element(By.ID, "qtdePedido").text.strip() != "")
+        texto = navegador.find_element(By.ID, "qtdePedido").text.strip()  # <-- usa aqui
+
+    return int(texto)
 
 
 def duplicar_pedido_atual(navegador, wait) -> str:
