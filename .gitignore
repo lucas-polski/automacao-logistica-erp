@@ -2,7 +2,6 @@
 .venv/
 __pycache__/
 config.ini
-*.txt
 build/
 dist/
 *.spec
