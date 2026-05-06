@@ -72,17 +72,18 @@ def _estabilizar_antes_de_transicao(navegador, wait):
 
 
 def _preparar_primeira_aba(navegador, wait, cfg, janela_principal, dados: DadosRelatorio, nome_aba: str):
-    """
-    Fluxo específico da PRIMEIRA aba: seleciona cliente, verifica itens
-    residuais e registra o primeiro pedido gerado.
-    """
     cliente.selecionar_cliente(
         navegador, wait, cfg.nome_cliente, janela_principal, cfg.url_portal
     )
-    janela.entrar_frame_cadastro(navegador, wait)
+
+    # Estabiliza o estado após a vinculação do cliente.
+    # Sem isso, o frame ainda está sendo recriado pelo sistema quando
+    # tentamos contar itens, causando TimeoutException intermitente.
+    _estabilizar_antes_de_transicao(navegador, wait)
 
     # Verifica se o pedido inicial veio com itens residuais
     quantidade_inicial = pedido_mod.contar_itens_no_pedido(navegador, wait)
+    # ... resto continua igual
     if quantidade_inicial > 0:
         print(f"  {nome_aba} detectou {quantidade_inicial} itens residuais. Limpando...")
         pedido_mod.limpar_itens(navegador, wait)
