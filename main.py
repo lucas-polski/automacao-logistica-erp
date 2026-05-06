@@ -29,6 +29,48 @@ from automacao.portal import cliente, pedido as pedido_mod, item, janela
 # FUNÇÕES AUXILIARES DO ORQUESTRADOR
 # ============================================================
 
+def _estabilizar_antes_de_transicao(navegador, wait):
+    """
+    Garante que o navegador está em estado consistente antes de transitar
+    entre abas. Resolve race conditions onde o sistema ainda está atualizando
+    coisas em background quando tentamos a próxima operação.
+
+    Faz três coisas:
+    1. Fecha qualquer janela órfã que tenha sobrado
+    2. Aguarda o frame de cadastro estar disponível e estável
+    3. Confirma que conseguimos ler o número do pedido atual
+    """
+    janela_principal = navegador.current_window_handle
+
+    # 1. Limpa janelas órfãs (popups esquecidos)
+    qtd_orfas = janela.fechar_janelas_orfas(navegador, janela_principal)
+    if qtd_orfas > 0:
+        print(f"   Fechando {qtd_orfas} janela(s) órfã(s) antes da transição.")
+        time.sleep(1)
+
+    # 2. Volta para o frame de cadastro (estado padrão de operação)
+    janela.entrar_frame_cadastro(navegador, wait)
+
+    # 3. Tenta ler o número do pedido com retry curto se falhar
+    #    Se o sistema estiver atualizando o frame, esperamos um pouco e tentamos de novo
+    for tentativa in range(3):
+        try:
+            numero = pedido_mod.obter_numero_atual(navegador, wait)
+            print(f"   Estado estável. Pedido atual: {numero}")
+            return
+        except Exception as e:
+            if tentativa < 2:
+                print(f"   Tentativa {tentativa + 1} falhou ({type(e).__name__}). Aguardando 2s e tentando novamente...")
+                time.sleep(2)
+                # Força recarregar do estado: sai de frames, volta pro cadastro
+                navegador.switch_to.default_content()
+            else:
+                # Última tentativa falhou — propaga o erro
+                raise
+
+
+
+
 def _preparar_primeira_aba(navegador, wait, cfg, janela_principal, dados: DadosRelatorio, nome_aba: str):
     """
     Fluxo específico da PRIMEIRA aba: seleciona cliente, verifica itens
@@ -54,7 +96,11 @@ def _preparar_primeira_aba(navegador, wait, cfg, janela_principal, dados: DadosR
 
 
 def _preparar_aba_seguinte(navegador, wait, dados: DadosRelatorio, nome_aba: str):
-    """Fluxo para abas posteriores: duplica pedido anterior, limpa e consulta."""
+    """Fluxo para abas posteriores: estabiliza, duplica pedido anterior, limpa e consulta."""
+    # Estabiliza o estado antes de tentar a transição.
+    # Sem isso, race conditions intermitentes causam falha em obter_numero_atual.
+    _estabilizar_antes_de_transicao(navegador, wait)
+
     novo_id = pedido_mod.preparar_pedido_duplicado(navegador, wait)
     dados.pedidos_gerados.append(f"Aba: {nome_aba} -> Pedido: {novo_id}")
 
