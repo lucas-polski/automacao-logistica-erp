@@ -44,12 +44,12 @@ def _preparar_primeira_aba(navegador, wait, cfg, janela_principal, dados: DadosR
     if quantidade_inicial > 0:
         print(f"  {nome_aba} detectou {quantidade_inicial} itens residuais. Limpando...")
         pedido_mod.limpar_itens(navegador, wait)
-        num_pedido_atual = pedido_mod.obter_numero_atual(navegador)
+        num_pedido_atual = pedido_mod.obter_numero_atual(navegador, wait)
         pedido_mod.consultar_por_numero(navegador, wait, num_pedido_atual)
     else:
         print(f"  {nome_aba} iniciada com pedido limpo.")
 
-    num_pedido = pedido_mod.obter_numero_atual(navegador)
+    num_pedido = pedido_mod.obter_numero_atual(navegador, wait)
     dados.pedidos_gerados.append(f"Aba: {nome_aba} -> Pedido: {num_pedido}")
 
 

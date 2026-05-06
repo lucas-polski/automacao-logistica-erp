@@ -16,9 +16,19 @@ from selenium.webdriver.support import expected_conditions as EC
 from automacao.portal import janela
 
 
-def obter_numero_atual(navegador) -> str:
+def obter_numero_atual(navegador, wait) -> str:
     """Retorna o número do pedido que está carregado na tela."""
-    return navegador.find_element(By.ID, "iNumeroPedido").get_attribute("value")
+    elemento = wait.until(EC.presence_of_element_located((By.ID, "iNumeroPedido")))
+    valor = (elemento.get_attribute("value") or "").strip()
+
+    # Se ainda estiver vazio, espera o número aparecer
+    if not valor:
+        wait.until(
+            lambda d: (d.find_element(By.ID, "iNumeroPedido").get_attribute("value") or "").strip() != ""
+        )
+        valor = navegador.find_element(By.ID, "iNumeroPedido").get_attribute("value").strip()
+
+    return valor
 
 
 def contar_itens_no_pedido(navegador, wait) -> int:
@@ -28,7 +38,7 @@ def contar_itens_no_pedido(navegador, wait) -> int:
 
     if not texto:
         wait.until(lambda d: d.find_element(By.ID, "qtdePedido").text.strip() != "")
-        texto = navegador.find_element(By.ID, "qtdePedido").text.strip()  # <-- usa aqui
+        texto = navegador.find_element(By.ID, "qtdePedido").text.strip()
 
     return int(texto)
 
@@ -37,11 +47,8 @@ def duplicar_pedido_atual(navegador, wait) -> str:
     """
     Duplica o pedido atualmente carregado (cria um novo pedido copiando
     cliente e configurações). Retorna o número do novo pedido.
-
-    A duplicação traz junto os itens do pedido antigo — é responsabilidade
-    do chamador limpá-los se necessário (ver limpar_itens).
     """
-    id_antigo = obter_numero_atual(navegador)
+    id_antigo = obter_numero_atual(navegador, wait)
     print(f"  Duplicando pedido {id_antigo}...")
 
     xpath_dup = "//a[contains(@onclick, 'duplicarPedido()')]"
@@ -50,18 +57,14 @@ def duplicar_pedido_atual(navegador, wait) -> str:
 
     # Espera o ID mudar (sinal de que a duplicação concluiu)
     wait.until(
-        lambda d: d.find_element(By.ID, "iNumeroPedido").get_attribute("value") != id_antigo
+        lambda d: (d.find_element(By.ID, "iNumeroPedido").get_attribute("value") or "").strip() != id_antigo
+        and (d.find_element(By.ID, "iNumeroPedido").get_attribute("value") or "").strip() != ""
     )
-    return obter_numero_atual(navegador)
+    return obter_numero_atual(navegador, wait)
 
 
 def limpar_itens(navegador, wait):
-    """
-    Remove todos os itens da grade do pedido atual.
-
-    Geralmente usado logo após duplicar_pedido_atual(), para limpar os
-    itens herdados do pedido anterior.
-    """
+    """Remove todos os itens da grade do pedido atual."""
     print("🧹 Executando limpeza de itens...")
     janela.entrar_frame_itens(navegador, wait)
 
@@ -78,9 +81,6 @@ def consultar_por_numero(navegador, wait, numero_pedido: str):
     """
     Limpa o formulário via botão nativo 'limparCampos()' e consulta o
     pedido pelo número informado.
-
-    Útil para forçar atualização da tela após operações que podem deixar
-    estado residual no formulário.
     """
     print(f"  Consultando pedido: {numero_pedido}")
     janela.entrar_frame_cadastro(navegador, wait)
@@ -94,7 +94,6 @@ def consultar_por_numero(navegador, wait, numero_pedido: str):
     except Exception:
         print("  Não foi possível clicar no botão limpar, tentando seguir...")
 
-    # Digita o número usando CTRL+A + BACKSPACE (mais robusto que .clear())
     campo_num = wait.until(EC.element_to_be_clickable((By.ID, 'iNumeroPedido')))
     campo_num.send_keys(Keys.CONTROL + "a")
     campo_num.send_keys(Keys.BACKSPACE)
@@ -111,11 +110,6 @@ def preparar_pedido_duplicado(navegador, wait) -> str:
     """
     Fluxo completo de preparação de um pedido duplicado pronto para receber
     novos itens: duplica, limpa os itens herdados e consulta para refresh.
-
-    Retorna o número do novo pedido.
-
-    Essa função encapsula uma sequência que aparece duas vezes no código
-    original (transição entre abas e criação do pedido de relançamento).
     """
     novo_id = duplicar_pedido_atual(navegador, wait)
     limpar_itens(navegador, wait)

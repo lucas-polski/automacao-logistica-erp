@@ -109,7 +109,7 @@ def _resetar_estado_apos_exclusao(navegador, wait):
     botão nativo limparCampos() e recarregar o pedido.
     """
     try:
-        num_pedido_atual = pedido.obter_numero_atual(navegador)
+        num_pedido_atual = pedido.obter_numero_atual(navegador, wait)
         print(f"    Salvando número do pedido atual: {num_pedido_atual}")
 
         xpath_limpar = "//a[contains(@onclick, 'limparCampos()')]"
@@ -128,7 +128,7 @@ def _resetar_estado_apos_exclusao(navegador, wait):
         time.sleep(3)
 
         # Valida que voltamos ao pedido certo
-        confirmado = pedido.obter_numero_atual(navegador)
+        confirmado = pedido.obter_numero_atual(navegador, wait)
         if confirmado != num_pedido_atual:
             print(f"    ⚠ ATENÇÃO: pedido mudou! esperado {num_pedido_atual}, atual {confirmado}")
         else:
