@@ -61,8 +61,8 @@ def _extrair_itens_validos(df: pd.DataFrame) -> list[Item]:
     for _, linha in df_limpo.iterrows():
         try:
             item = Item(
-                codigo=str(linha["CODIGO"]),
-                produto=str(linha["PRODUTO"]),
+                codigo=_normalizar_codigo(linha["CODIGO"]),
+                produto=str(linha["PRODUTO"]).strip(),
                 quantidade=int(linha["QTD"]),
             )
             itens.append(item)
@@ -71,6 +71,26 @@ def _extrair_itens_validos(df: pd.DataFrame) -> list[Item]:
             continue
 
     return itens
+
+
+def _normalizar_codigo(valor) -> str:
+    """
+    Converte o valor da coluna CODIGO para string limpa, sem '.0' no final
+    quando o pandas interpreta como float.
+
+    Exemplos:
+      20561 (int)     -> "20561"
+      20561.0 (float) -> "20561"
+      "20561" (str)   -> "20561"
+      "*20561" (str)  -> "*20561"
+    """
+    # Se for um número (int ou float), converte para int primeiro
+    # para eliminar a parte decimal, depois para string
+    if isinstance(valor, (int, float)):
+        return str(int(valor))
+
+    # Se já for string, só remove espaços
+    return str(valor).strip()
 
 
 def _aba_tem_quantidade(df: pd.DataFrame) -> bool:

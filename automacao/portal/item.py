@@ -95,7 +95,7 @@ def _aguardar_remocao_de_linhas(navegador, linhas_antes, qtd_a_remover):
             return False
 
     try:
-        WebDriverWait(navegador, 15).until(linhas_reduziram)
+        WebDriverWait(navegador, 30).until(linhas_reduziram)
         print(f"    Backend confirmou remoção. Grade atualizada.")
     except Exception as e:
         print(f"    Timeout aguardando remoção (fallback para sleep). Detalhe: {e}")
@@ -116,7 +116,7 @@ def _resetar_estado_apos_exclusao(navegador, wait):
         btn_limpar = wait.until(EC.element_to_be_clickable((By.XPATH, xpath_limpar)))
         navegador.execute_script("arguments[0].click();", btn_limpar)
         print(f"    Botão limparCampos() nativo acionado.")
-        time.sleep(2)
+        time.sleep(3)
 
         # Recarrega o pedido
         campo_num = wait.until(EC.element_to_be_clickable((By.ID, 'iNumeroPedido')))
