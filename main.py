@@ -161,6 +161,9 @@ def _executar_relancamento(navegador, wait, janela_principal, dados: DadosRelato
     print(f"\n   === INICIANDO PEDIDO DE RELANÇAMENTO ({len(dados.itens_para_relancar)} itens) ===")
 
     try:
+        # Estabiliza estado antes da transição (mesmo padrão da transição entre abas)
+        _estabilizar_antes_de_transicao(navegador, wait)
+
         novo_id = pedido_mod.preparar_pedido_duplicado(navegador, wait)
         dados.pedidos_gerados.append(f"Aba: RELANÇAMENTO (outro estoque) -> Pedido: {novo_id}")
         dados.pedido_relancamento_numero = novo_id
