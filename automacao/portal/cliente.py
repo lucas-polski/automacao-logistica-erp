@@ -45,6 +45,7 @@ def selecionar_cliente(navegador, wait, nome_cliente, janela_principal, url_port
     )).click()
 
     # 5. Volta para a janela principal e confirma os dados do cliente
+   # 5. Volta para a janela principal e confirma os dados do cliente
     navegador.switch_to.window(janela_principal)
     janela.entrar_frame_cadastro(navegador, wait)
     wait.until(EC.frame_to_be_available_and_switch_to_it("frameConfirmacaoDadosCliente"))
