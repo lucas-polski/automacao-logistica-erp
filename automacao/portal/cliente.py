@@ -50,4 +50,11 @@ def selecionar_cliente(navegador, wait, nome_cliente, janela_principal, url_port
     wait.until(EC.frame_to_be_available_and_switch_to_it("frameConfirmacaoDadosCliente"))
     wait.until(EC.element_to_be_clickable((By.ID, 'botaoConfirmarCliente'))).click()
 
+    # Após clicar em confirmar, o sistema faz um redirecionamento
+    # que destrói e recria o frame 'cadastro'. Aguardamos o frame
+    # ser recriado e o campo iNumeroPedido aparecer antes de retornar.
+    navegador.switch_to.default_content()
+    wait.until(EC.frame_to_be_available_and_switch_to_it("cadastro"))
+    wait.until(EC.presence_of_element_located((By.ID, "iNumeroPedido")))
+
     print("  Cliente vinculado.")

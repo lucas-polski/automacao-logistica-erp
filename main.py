@@ -61,7 +61,7 @@ def _estabilizar_antes_de_transicao(navegador, wait):
         except Exception as e:
             if tentativa < 2:
                 print(f"   Tentativa {tentativa + 1} falhou ({type(e).__name__}). Aguardando 2s e tentando novamente...")
-                time.sleep(2)
+                time.sleep(3)
                 # Força recarregar do estado: sai de frames, volta pro cadastro
                 navegador.switch_to.default_content()
             else:
@@ -75,11 +75,9 @@ def _preparar_primeira_aba(navegador, wait, cfg, janela_principal, dados: DadosR
     cliente.selecionar_cliente(
         navegador, wait, cfg.nome_cliente, janela_principal, cfg.url_portal
     )
-
     # Estabiliza o estado após a vinculação do cliente.
     # Sem isso, o frame ainda está sendo recriado pelo sistema quando
     # tentamos contar itens, causando TimeoutException intermitente.
-    _estabilizar_antes_de_transicao(navegador, wait)
 
     # Verifica se o pedido inicial veio com itens residuais
     quantidade_inicial = pedido_mod.contar_itens_no_pedido(navegador, wait)
